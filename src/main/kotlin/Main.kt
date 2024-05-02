@@ -119,10 +119,8 @@ fun main() {
         }
         //val randGold = (1..5).random()
 
-        var randGold = 0
-        for(item in enemy.inventory){
-            randGold += item.priceBase
-        }
+        val randGold = enemy.getGearPrice()
+
         if(win==userPlayer.name){
             userPlayer.gold+=randGold
             println("You win! You gain $randGold gold! You now have " + userPlayer.gold + " gold!")
@@ -137,6 +135,8 @@ fun main() {
             break
         }
         shop(userPlayer, inventory)
+        userPlayer.chooseItem()
+        chooseCreature(userPlayer, userCreatures)
     }
     println("Thanks for playing!")
 }
@@ -448,7 +448,10 @@ fun playerVNPC(playerOne: Player, playerTwo: Player): String{
                     playerOne.sheathCarry()
                 }
             }
-            val skillUsed = playerOne.getSkills(playerTwo)
+            var skillUsed = false
+            if(!sheathUsed) {
+                skillUsed = playerOne.getSkills(playerTwo)
+            }
             if(!skillUsed && !sheathUsed) {
                 val atk = playerOne.attacking(playerTwo)
                 println(playerOne.name + " use " + playerOne.getCarry(false) + " to attack " + playerTwo.name + " dealing a potential " + atk.damage + " damage")
@@ -462,21 +465,28 @@ fun playerVNPC(playerOne: Player, playerTwo: Player): String{
                 if(playerOne.position>playerTwo.position){
                    if(playerTwo.position + playerTwo.agility>playerOne.position){
                        playerTwo.position=playerOne.position
+                       println("Enemy moved to your position")
                    }else{
                        playerTwo.position+=playerTwo.agility
+                       println("Enemy moved " + playerTwo.agility + " spaces right")
                    }
                 }else{
                     if(playerTwo.position - playerTwo.agility<playerOne.position){
                         playerTwo.position=playerOne.position
+                        println("Enemy moved to your position")
                     }else{
                         playerTwo.position-=playerTwo.agility
+                        println("Enemy moved " + playerTwo.agility + " spaces left")
                     }
                 }
             } else if (playerTwo.getCarry(true) == "Bow"){
-                if (playerOne.position > playerTwo.position) {
+                if ((playerOne.position > playerTwo.position && abs(playerTwo.position - playerTwo.agility) <= 10) || (abs(playerTwo.position - playerTwo.agility) > 10 && playerOne.position < playerTwo.position)) {
                     playerTwo.position -= playerTwo.agility
-                } else {
+                    if()
+                    println("Enemy moved " + playerTwo.agility + " spaces left")
+                } else if ((playerOne.position < playerTwo.position && abs(playerTwo.position - playerTwo.agility) <= 10) || (abs(playerTwo.position - playerTwo.agility) > 10 && playerOne.position > playerTwo.position)){
                     playerTwo.position += playerTwo.agility
+                    println("Enemy moved " + playerTwo.agility + " spaces right")
                 }
             }
             val atk = playerTwo.attacking(playerOne)
@@ -751,6 +761,14 @@ class Player(val isReal: Boolean, val name: String){
 
     var inventory = ArrayList<Item>()
 
+    fun getGearPrice() : Int{
+        var price = 0
+        for(item in items){
+            price += item.priceBase
+        }
+        return price
+    }
+
     fun chooseWeapon(){
         var finishedChoosing = "NO"
         var itemExists = false
@@ -843,6 +861,11 @@ class Player(val isReal: Boolean, val name: String){
         }
         alterChosen=true
         chooseWeapon()
+    }
+
+    fun getRange() : Int{
+        val player = Player(false, "NULL")
+        return attacking(player).range
     }
 
     fun getDescription(trueSight: Boolean):String{
@@ -1391,16 +1414,6 @@ class Spear : Item("Spear", "Carry", "One of the most simple yet effective weapo
     override fun onAttack(user: Player, target: Player, atk: Attack): Attack {
         if(type=="Carry"){
             atk.damage++
-            if (user.skill > 0 && user.isReal && user.getSheath() == "none") {
-                println("Would you like to throw your spear? Increasing damage by one but disarming yourself. Type 'Yes' to do so")
-                val input = readln()
-                if (input == "Yes") {
-                    atk.range += 10
-                    atk.damage++
-                    type="Sheathed"
-                    println("Your spear was thrown! Choose a new weapon")
-                }
-            }
         }
         return atk
     }
@@ -1411,6 +1424,26 @@ class Spear : Item("Spear", "Carry", "One of the most simple yet effective weapo
             println("The spear protects " + user.name + " from one damage! Dealing " + atk.damage + " damage.")
         }
         return atk
+    }
+
+    override fun skillOneIsActive(user: Player): String{
+        if(user.skill>0 && user.getSheath() == "none") {
+            return "Spear throw: 1 Skill, throws your spear"
+        }
+        return "NULL"
+    }
+    override fun skillOneName(): String{
+        return "Spear throw"
+    }
+    override fun skillOne(user: Player, target: Player){
+        println("A Spear is thrown at " + target.name)
+        val atk = user.attacking(target)
+        atk.range += 10
+        atk.damage++
+        type="Sheathed"
+        target.attacked(user, atk)
+        println("Your spear was thrown! Choose a new weapon")
+        user.chooseWeapon()
     }
 }
 
